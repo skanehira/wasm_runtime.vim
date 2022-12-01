@@ -404,13 +404,17 @@ function! s:module_load(file) abort
   return module.load(a:file)
 endfunction
 
+function! wasm_runtime#new(file) abort
+  let module = s:module_load(a:file)
+  let runtime = s:runtime_new(module)
+  return runtime
+endfunction
+
 function! wasm_runtime#run(...) abort
   try
-    let file = a:1
+    let runtime = wasm_runtime#new(a:1)
     let func_name = a:2
     let args = a:000[2:]
-    let module = s:module_load(file)
-    let runtime = s:runtime_new(module)
     echom runtime.invoke(func_name, args)
   catch /.*/
     echohl ErrorMsg
