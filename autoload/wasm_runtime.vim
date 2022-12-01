@@ -210,9 +210,13 @@ function! s:decoder_new(blob) abort
     return bytes
   endfunction
 
+  function! decoder.decode_byte() dict abort
+    return self.decode(1)[0]
+  endfunction
+
   function! decoder.decode_section_header() dict abort
-    let section_id = self.decode(1)[0]
-    let size = self.decode(1)[0]
+    let section_id = self.decode_byte()
+    let size = self.decode_byte()
     return [section_id, size]
   endfunction
 
@@ -232,10 +236,10 @@ function! s:module_load(file) abort
 
   function! module.decode_type_section(decoder) dict abort
     let func_types = []
-    let size = a:decoder.decode(1)[0]
+    let size = a:decoder.decode_byte()
 
     for _ in range(1, size)
-      let func_type = a:decoder.decode(1)[0]
+      let func_type = a:decoder.decode_byte()
       if func_type !=# 96
         throw 'invalid func_type: ' .. func_type
       endif
@@ -243,19 +247,19 @@ function! s:module_load(file) abort
             \ 'params': [],
             \ 'results': [],
             \ }
-      let num_params = a:decoder.decode(1)[0]
+      let num_params = a:decoder.decode_byte()
 
       for _ in range(1, num_params)
-        if a:decoder.decode(1)[0] !=# 127
+        if a:decoder.decode_byte() !=# 127
           throw 'function parameter only support i32'
         endif
         call add(func.params, 'i32')
       endfor
 
-      let num_results = a:decoder.decode(1)[0]
+      let num_results = a:decoder.decode_byte()
 
       for _ in range(1, num_results)
-        if a:decoder.decode(1)[0] !=# 127
+        if a:decoder.decode_byte() !=# 127
           throw 'function results only support i32'
         endif
         call add(func.results, 'i32')
@@ -269,27 +273,27 @@ function! s:module_load(file) abort
 
   function! module.decode_function_section(decoder) dict abort
     let func_section = []
-    let size = a:decoder.decode(1)[0]
+    let size = a:decoder.decode_byte()
     for _ in range(1, size)
-      let idx = a:decoder.decode(1)[0]
+      let idx = a:decoder.decode_byte()
       call add(func_section, idx)
     endfor
     return func_section
   endfunction
 
   function! module.decode_export_section(decoder) dict abort
-    let size = a:decoder.decode(1)[0]
+    let size = a:decoder.decode_byte()
     let exports = []
     for _ in range(1, size)
-      let str_len = a:decoder.decode(1)[0]
+      let str_len = a:decoder.decode_byte()
       let name = s:to_ascii(a:decoder.decode(str_len))
-      let kind = a:decoder.decode(1)[0]
+      let kind = a:decoder.decode_byte()
 
       if kind !=# 0
         throw 'only support function!: ' .. kind
       endif
 
-      let idx = a:decoder.decode(1)[0]
+      let idx = a:decoder.decode_byte()
 
       " NOTE: only support function!
       call add(exports, {
@@ -304,7 +308,7 @@ function! s:module_load(file) abort
     let decoder = s:decoder_new(a:bytes)
 
     " skip function! locals
-    let skip_count = decoder.decode(1)[0]
+    let skip_count = decoder.decode_byte()
     call decoder.skip(skip_count)
 
     let function_body = {
@@ -312,17 +316,17 @@ function! s:module_load(file) abort
           \ }
 
     while !decoder.is_end()
-      let op = decoder.decode(1)[0]
+      let op = decoder.decode_byte()
       let inst_name = s:INSTRUCTIONS[op]
       let inst = {'name': inst_name}
       if inst_name ==# 'local.get'
-        let local_idx = decoder.decode(1)[0]
+        let local_idx = decoder.decode_byte()
         let inst['value'] = local_idx
       elseif inst_name ==# 'i32.const'
-        let value = decoder.decode(1)[0]
+        let value = decoder.decode_byte()
         let inst['value'] = value
       elseif inst_name ==# 'call'
-        let func_idx = decoder.decode(1)[0]
+        let func_idx = decoder.decode_byte()
         let inst['value'] = func_idx
       endif
       call add(function_body.code, inst)
@@ -333,9 +337,9 @@ function! s:module_load(file) abort
 
   function! module.decode_code_section(decoder) dict abort
     let functions = []
-    let size = a:decoder.decode(1)[0]
+    let size = a:decoder.decode_byte()
     for _ in range(1, size)
-      let body_size = a:decoder.decode(1)[0]
+      let body_size = a:decoder.decode_byte()
       let body = a:decoder.decode(body_size)
       call add(functions, self.decode_function_body(body))
     endfor
