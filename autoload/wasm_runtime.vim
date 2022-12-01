@@ -3,17 +3,17 @@
 " License: MIT
 
 let s:SECTION_ID = {
-      \ 'CUSTOM': 0,
-      \ 'TYPE': 1,
-      \ 'FUNCTION': 3,
-      \ 'EXPORT': 7,
-      \ 'CODE': 10
+      \ 'CUSTOM': 0x0,
+      \ 'TYPE': 0x1,
+      \ 'FUNCTION': 0x3,
+      \ 'EXPORT': 0x7,
+      \ 'CODE': 0x0A
       \ }
 
 let s:INSTRUCTIONS = {
-      \ 32: 'local.get',
-      \ 106: 'i32.add',
-      \ 11: 'end',
+      \ 0x20: 'local.get',
+      \ 0x6A: 'i32.add',
+      \ 0x0B: 'end',
       \ }
 
 function! s:runtime_new(module) abort
