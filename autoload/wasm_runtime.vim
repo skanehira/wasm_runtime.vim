@@ -11,8 +11,15 @@ let s:SECTION_ID = {
       \ }
 
 let s:INSTRUCTIONS = {
+      \ 0x04: 'if',
+      \ 0x0f: 'return',
+      \ 0x10: 'call',
       \ 0x20: 'local.get',
+      \ 0x40: 'void',
+      \ 0x41: 'i32.const',
+      \ 0x46: 'i32.eq',
       \ 0x6A: 'i32.add',
+      \ 0x6B: 'i32.sub',
       \ 0x0B: 'end',
       \ }
 
@@ -25,8 +32,13 @@ function! s:runtime_new(module) abort
   let functions = []
 
   for i in range(0, len(a:module.function_section)-1)
+    let func_sig_idx = a:module.function_section[i]
+    let func_type = a:module.type_section[func_sig_idx]
     let func_body = a:module.code_section[i]
-    call add(functions, { 'body': func_body.code })
+    call add(functions, {
+          \ 'func_type': func_type,
+          \ 'body': func_body.code
+          \ })
   endfor
 
   let runtime = {
@@ -57,7 +69,11 @@ function! s:runtime_new(module) abort
 
   function! runtime.invoke(func_name, args) dict abort
      let func = self.resolve_func(a:func_name)
-     let frame = self.new_frame(func.body, a:args)
+     return self.invoke_func(func.body, a:args)
+  endfunction
+
+  function! runtime.invoke_func(func_body, args) dict abort
+     let frame = self.new_frame(a:func_body, a:args)
      call add(self.frame, frame)
      return self.execute()
   endfunction
@@ -94,10 +110,49 @@ function! s:runtime_new(module) abort
         let value = self.current_frame().local_stack[inst.value]
         call add(self.stack, value)
       elseif inst.name ==# 'i32.add'
-        let a = str2nr(self.stack_pop())
         let b = str2nr(self.stack_pop())
+        let a = str2nr(self.stack_pop())
         call add(self.stack, a + b)
-      elseif inst.name ==# 'end'
+      elseif inst.name ==# 'i32.sub'
+        let b = str2nr(self.stack_pop())
+        let a = str2nr(self.stack_pop())
+        call add(self.stack, a - b)
+      elseif inst.name ==# 'i32.const'
+        let v = str2nr(inst.value)
+        call add(self.stack, v)
+      elseif inst.name ==# 'i32.eq'
+        let b = str2nr(self.stack_pop())
+        let a = str2nr(self.stack_pop())
+        call add(self.stack, a ==# b)
+      elseif inst.name ==# 'if'
+        let v = self.stack_pop()
+        if v !=# 1
+          while v:true
+            let inst = self.instruction()
+            if empty(inst)
+              throw 'not found instruction'
+            endif
+            if inst.name ==# 'end' || inst.name ==# 'else'
+              call self.inc_pc()
+              break
+            endif
+            call self.inc_pc()
+          endwhile
+        endif
+      elseif inst.name ==# 'call'
+        let func_idx = inst.value
+        let func = self.functions[func_idx]
+        let args = []
+        for _ in range(1, len(func.func_type.params))
+          call add(args, self.stack_pop())
+        endfor
+        let result = self.invoke_func(func.body, args)
+        if result !=# ''
+          call add(self.stack, result)
+        endif
+      elseif inst.name ==# 'return'
+        call self.pop_frame()
+      elseif inst.name ==# 'end' || inst.name ==# 'void'
         " do nothing
       endif
     endwhile
@@ -263,6 +318,12 @@ function! s:module_load(file) abort
       if inst_name ==# 'local.get'
         let local_idx = decoder.decode(1)[0]
         let inst['value'] = local_idx
+      elseif inst_name ==# 'i32.const'
+        let value = decoder.decode(1)[0]
+        let inst['value'] = value
+      elseif inst_name ==# 'call'
+        let func_idx = decoder.decode(1)[0]
+        let inst['value'] = func_idx
       endif
       call add(function_body.code, inst)
     endwhile
