@@ -192,21 +192,21 @@ function! s:decoder_new(blob) abort
     return self.pos >= len(self.blob)
   endfunction
 
-  function! decoder.skip(count) dict abort
-    let self.pos += a:count
+  function! decoder.skip(size) dict abort
+    let self.pos += a:size
   endfunction
 
-  function! decoder.decode(count) dict abort
+  function! decoder.decode(size) dict abort
     if self.pos >= len(self.blob)
       throw 'end of file'
     endif
     let start = self.pos
-    let end = start + a:count - 1
+    let end = start + a:size - 1
     let bytes = []
     for i in range(start, end)
       call add(bytes, self.blob[i])
     endfor
-    let self.pos += a:count
+    let self.pos += a:size
     return bytes
   endfunction
 
@@ -232,9 +232,9 @@ function! s:module_load(file) abort
 
   function! module.decode_type_section(decoder) dict abort
     let func_types = []
-    let count = a:decoder.decode(1)[0]
+    let size = a:decoder.decode(1)[0]
 
-    for _ in range(1, count)
+    for _ in range(1, size)
       let func_type = a:decoder.decode(1)[0]
       if func_type !=# 96
         throw 'invalid func_type: ' .. func_type
@@ -269,8 +269,8 @@ function! s:module_load(file) abort
 
   function! module.decode_function_section(decoder) dict abort
     let func_section = []
-    let count = a:decoder.decode(1)[0]
-    for _ in range(1, count)
+    let size = a:decoder.decode(1)[0]
+    for _ in range(1, size)
       let idx = a:decoder.decode(1)[0]
       call add(func_section, idx)
     endfor
@@ -278,9 +278,9 @@ function! s:module_load(file) abort
   endfunction
 
   function! module.decode_export_section(decoder) dict abort
-    let count = a:decoder.decode(1)[0]
+    let size = a:decoder.decode(1)[0]
     let exports = []
-    for _ in range(1, count)
+    for _ in range(1, size)
       let str_len = a:decoder.decode(1)[0]
       let name = s:to_ascii(a:decoder.decode(str_len))
       let kind = a:decoder.decode(1)[0]
@@ -333,8 +333,8 @@ function! s:module_load(file) abort
 
   function! module.decode_code_section(decoder) dict abort
     let functions = []
-    let count = a:decoder.decode(1)[0]
-    for _ in range(1, count)
+    let size = a:decoder.decode(1)[0]
+    for _ in range(1, size)
       let body_size = a:decoder.decode(1)[0]
       let body = a:decoder.decode(body_size)
       call add(functions, self.decode_function_body(body))
