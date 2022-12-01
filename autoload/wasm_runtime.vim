@@ -192,7 +192,7 @@ function! s:module_load(file) abort
 
       for _ in range(1, num_params)
         if a:decoder.decode(1)[0] !=# 127
-          throw 'function! parameter only support i32'
+          throw 'function parameter only support i32'
         endif
         call add(func.params, 'i32')
       endfor
@@ -201,7 +201,7 @@ function! s:module_load(file) abort
 
       for _ in range(1, num_results)
         if a:decoder.decode(1)[0] !=# 127
-          throw 'function! results only support i32'
+          throw 'function results only support i32'
         endif
         call add(func.results, 'i32')
       endfor
